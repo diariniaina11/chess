@@ -10,14 +10,15 @@ const chiffres = ['1', '2', '3', '4', '5', '6', '7', '8'];
 const initialPieces = {
     'a8': '♜', 'b8': '♞', 'c8': '♝', 'd8': '♛', 'e8': '♚', 'f8': '♝', 'g8': '♞', 'h8': '♜',
     'a7': '♟', 'b7': '♟', 'c7': '♟', 'd7': '♟', 'e7': '♟', 'f7': '♟', 'g7': '♟', 'h7': '♟',
-    'a2': '♙', 'b2': '♙', 'c2': '♙', 'd2': '♙', 'e2': '♙', 'f2': '♙', 'g2': '♙', 'h2': '♙',
-    'a1': '♖', 'b1': '♘', 'c1': '♗', 'd1': '♕', 'e1': '♔', 'f1': '♗', 'g1': '♘', 'h1': '♖'
+    
+    'a2': '♟', 'b2': '♟', 'c2': '♟', 'd2': '♟', 'e2': '♟', 'f2': '♟', 'g2': '♟', 'h2': '♟',
+    'a1': '♜', 'b1': '♞', 'c1': '♝', 'd1': '♛', 'e1': '♚', 'f1': '♝', 'g1': '♞', 'h1': '♜'
 };
 
 const piece={
-    'Black':{'tour': '♖','cavalier': '♘', 'fou': '♗', 'reine': '♕', 'roi': '♔', 'pion': '♙'},
-    'White':{'tour': '♜','cavalier': '♞', 'fou': '♝', 'reine': '♛', 'roi': '♚', 'pion': '♟'}
+    'tour': '♜','cavalier': '♞', 'fou': '♝', 'reine': '♛', 'roi': '♚', 'pion': '♟'
 }
+
 class Piece{
     type;
     color;
@@ -171,20 +172,30 @@ class Move{
                 return filteredListsss;
             case 'pion':
                 
-
-                var movesPossibles=[];
-                
-                var colonne=letters.indexOf(position[0]);
-                var ligne=chiffres.indexOf(position[1]);
-                movesPossibles.push(letters[colonne] +chiffres[ligne+1]);
-                if(parseInt(position[1])==2){
-                    movesPossibles.push(letters[colonne] +chiffres[ligne+2]);
+                if(this.piece.color=='white'){
+                    var movesPossibles=[];
+                    var colonne=letters.indexOf(position[0]);
+                    var ligne=chiffres.indexOf(position[1]);
+                    movesPossibles.push(letters[colonne] +chiffres[ligne+1]);
+                    if(parseInt(position[1])==2){
+                        movesPossibles.push(letters[colonne] +chiffres[ligne+2]);
+                    }
+                }else{
+                    var movesPossibles=[];
+                    var colonne=letters.indexOf(position[0]);
+                    var ligne=chiffres.indexOf(position[1]);
+                    movesPossibles.push(letters[colonne] +chiffres[ligne-1]);
+                    if(parseInt(position[1])==7){
+                        movesPossibles.push(letters[colonne] +chiffres[ligne-2]);
+                    }
                 }
+                
                 return movesPossibles;
             default:
                 return "tsis";
         }
     }
+    
 }
 
 
@@ -209,6 +220,7 @@ for (let row = 0; row < rows; row++) {
         // Ajouter les pièces initiales
         if (initialPieces[squareId]) {
             p.textContent = initialPieces[squareId];
+            
         }
         
         // Ajouter un effet de clic
@@ -217,22 +229,28 @@ for (let row = 0; row < rows; row++) {
 
 
         });
+        if(row<2){
+            p.style.color='black';
+            p.style.transform='rotate(180deg)';
+        }else if(row>5){
+            p.style.color='white';
+        }
         
         li.appendChild(p);
     }
     ul.appendChild(li);
 }
 
-tour=new Piece('Black','tour','horizontal','d4');
-fou=new Piece('Black','fou','horizontal','c5');
-roi=new Piece('Black','roi','horizontal','d1');
-reine=new Piece('Black','reine','horizontal','d5');
-pion=new Piece('Black','pion','horizontal','a3');
-cavalier=new Piece('Black','cavalier','horizontal','d4');
+tour=new Piece('black','tour','horizontal','d4');
+fou=new Piece('black','fou','horizontal','c5');
+roi=new Piece('black','roi','horizontal','d1');
+reine=new Piece('black','reine','horizontal','d5');
+pion=new Piece('black','pion','horizontal','a7');
+cavalier=new Piece('black','cavalier','horizontal','d4');
 
 
 
-move_test=new Move(cavalier,'a8','a8');
+move_test=new Move(pion,'a8','a8');
 
 
 console.log(fou.type);
