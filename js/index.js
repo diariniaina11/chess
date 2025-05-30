@@ -7,13 +7,13 @@ const chiffres = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
 
 // Pièces d'échecs initiales
-const initialPieces = {
-    'a8': '♜', 'b8': '♞', 'c8': '♝', 'd8': '♛', 'e8': '♚', 'f8': '♝', 'g8': '♞', 'h8': '♜',
-    'a7': '♟', 'b7': '♟', 'c7': '♟', 'd7': '♟', 'e7': '♟', 'f7': '♟', 'g7': '♟', 'h7': '♟',
+const initialPieces = [
+    {'a8': '♜', 'b8': '♞', 'c8': '♝', 'd8': '♛', 'e8': '♚', 'f8': '♝', 'g8': '♞', 'h8': '♜',
+    'a7': '♟', 'b7': '♟', 'c7': '♟', 'd7': '♟', 'e7': '♟', 'f7': '♟', 'g7': '♟', 'h7': '♟',},
     
-    'a2': '♟', 'b2': '♟', 'c2': '♟', 'd2': '♟', 'e2': '♟', 'f2': '♟', 'g2': '♟', 'h2': '♟',
-    'a1': '♜', 'b1': '♞', 'c1': '♝', 'd1': '♛', 'e1': '♚', 'f1': '♝', 'g1': '♞', 'h1': '♜'
-};
+    {'a2': '♟', 'b2': '♟', 'c2': '♟', 'd2': '♟', 'e2': '♟', 'f2': '♟', 'g2': '♟', 'h2': '♟',
+    'a1': '♜', 'b1': '♞', 'c1': '♝', 'd1': '♛', 'e1': '♚', 'f1': '♝', 'g1': '♞', 'h1': '♜'}
+];
 
 const piece={
     'tour': '♜','cavalier': '♞', 'fou': '♝', 'reine': '♛', 'roi': '♚', 'pion': '♟'
@@ -32,24 +32,26 @@ class Piece{
     }
 }
 class Move{
-    piece;
-    start;
     end;
-    constructor(piece, start, end){
-        this.piece=piece;
-        this.start=start;
-        this.end=end;
+    position;
+    pieceType;
+    color;
+    constructor(pieceType, position, color){
+        this.position=position;
+        this.pieceType=pieceType;
+        this.color=color;
     }
     movePossible(){
         
-        const position=this.piece.position;
-        switch (this.piece.type) {
+        const position=this.position;
+        switch (this.pieceType) {
             case 'tour':
                 var ligne=position[0];
                 var colonne=position[1];
                 var moveHorizontal=[];
                 for(let i=0;i<8;i++){
                     moveHorizontal.push(position[0]+String(i+1));
+                    
                 }
                 var moveVertical=[];
                 for(let i=0;i<8;i++){
@@ -172,7 +174,7 @@ class Move{
                 return filteredListsss;
             case 'pion':
                 
-                if(this.piece.color=='white'){
+                if(this.color=='white'){
                     var movesPossibles=[];
                     var colonne=letters.indexOf(position[0]);
                     var ligne=chiffres.indexOf(position[1]);
@@ -197,6 +199,7 @@ class Move{
     }
     
 }
+var movesPossiblesContainer=[];
 
 
 
@@ -213,20 +216,74 @@ for (let row = 0; row < rows; row++) {
         // Alterner les classes pour le fond noir et blanc
         if ((row + col) % 2 === 0) {
             p.classList.add('white');
+
         } else {
             p.classList.add('black');
         }
         
         // Ajouter les pièces initiales
-        if (initialPieces[squareId]) {
-            p.textContent = initialPieces[squareId];
+        if (initialPieces[0][squareId]) {
+            p.textContent = initialPieces[0][squareId];
             
+        }else if(initialPieces[1][squareId]){
+            p.textContent = initialPieces[1][squareId];
+
         }
         
         // Ajouter un effet de clic
-        p.addEventListener('click', function() {
-            console.log('Cliqué sur la case:', squareId);
 
+        p.addEventListener('click', function() {
+            //console.log('Cliqué sur la case:', squareId);
+            square=document.getElementById(squareId);
+            //console.log(square.textContent);
+            //console.log(square.style.color);
+
+            //move possible
+            switch (square.textContent) {
+                case '♜':
+                    pieceType='tour';
+                    break;
+                case '♞':
+                    pieceType='cavalier';
+                    break;
+                case '♝':
+                    pieceType='fou';
+                    break;
+                case '♛':
+                    pieceType='reine';
+                    break;
+                case '♚':
+                    pieceType='roi';
+                    break;
+                case '♟':
+                    pieceType='pion';
+                    break;
+                default:
+                    pieceType=null;
+            }
+            AllSquare.forEach(element => {
+                element.style.boxShadow = 'none';
+            }
+            );
+            movesPossiblesContainerLenght=movesPossiblesContainer.length;
+            
+            movesPossiblesContainer.push(new Move(pieceType,square.id, square.style.color)) ;//pieceType, position, color
+            movesPossiblesContainer.push(new Move(pieceType,square.id, square.style.color)) ;//pieceType, position, color
+            //console.log(movesPossiblesContainer);
+            
+            
+            
+            move_used= movesPossiblesContainer[movesPossiblesContainerLenght].movePossible()
+            
+
+            move_used.forEach(id => {
+                const element = document.getElementById(id);
+                if (element) {
+                    
+                    element.style.boxShadow = 'inset 0 0 20px rgba(0, 255, 0, 1)';
+                    
+                }
+              });
 
         });
         if(row<2){
@@ -237,26 +294,12 @@ for (let row = 0; row < rows; row++) {
         }
         
         li.appendChild(p);
+
     }
     ul.appendChild(li);
 }
 
-tour=new Piece('black','tour','horizontal','d4');
-fou=new Piece('black','fou','horizontal','c5');
-roi=new Piece('black','roi','horizontal','d1');
-reine=new Piece('black','reine','horizontal','d5');
-pion=new Piece('black','pion','horizontal','a7');
-cavalier=new Piece('black','cavalier','horizontal','d4');
 
-
-
-move_test=new Move(pion,'a8','a8');
-
-
-console.log(fou.type);
-console.log("Position :" ,tour.position);
-
-move_testMP=move_test.movePossible()
 
 
 
@@ -264,9 +307,4 @@ move_testMP=move_test.movePossible()
 container.appendChild(ul);
 //alert(document.getElementById('a8').textContent);
 
-move_testMP.forEach(id => {
-    const element = document.getElementById(id);
-    if (element) {
-      element.style.backgroundColor = "green";
-    }
-  });
+var AllSquare = [...document.getElementsByClassName('piece')]
