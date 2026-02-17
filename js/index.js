@@ -22,19 +22,48 @@ function updateStatus(){
 }
 
 function movePiece(fromSquare, toSquare){
+    // record previous display state
+    const wasActive = selectedHighlighted;
+
     // move the piece text and color; clear source
     toSquare.textContent = fromSquare.textContent;
     toSquare.style.color = fromSquare.style.color;
     fromSquare.textContent = '';
     fromSquare.style.color = '';
 
-    // remove any highlighting left on board
+    // clear all highlights (we will reapply if needed)
     AllSquare.forEach(el => el.style.boxShadow = 'none');
 
-    // reset selection/highlighting and button state
-    selectedPiece = null;
-    selectedMoves = [];
-    selectedHighlighted = false;
+    // keep focus on moved piece
+    selectedPiece = toSquare;
+    if(wasActive && selectedPiece.textContent){
+        // recompute legal moves for the piece now on its new square
+        let pt = null;
+        switch (toSquare.textContent) {
+            case '♜': pt='tour'; break;
+            case '♞': pt='cavalier'; break;
+            case '♝': pt='fou'; break;
+            case '♛': pt='reine'; break;
+            case '♚': pt='roi'; break;
+            case '♟': pt='pion'; break;
+        }
+        if(pt){
+            const moveObj = new Move(pt, toSquare.id, toSquare.style.color);
+            selectedMoves = moveObj.movePossible(AllSquare);
+        } else {
+            selectedMoves = [];
+        }
+        // highlight them immediately
+        selectedMoves.forEach(id => {
+            const el = document.getElementById(id);
+            if(el) el.style.boxShadow = 'inset 0 0 20px rgba(0, 255, 0, 1)';
+        });
+    } else {
+        selectedMoves = [];
+    }
+    selectedHighlighted = wasActive;
+
+    // update button display, leave it enabled if wasActive
     updateButtonState(document.getElementById('toggleMoves'));
 
     // switch player
@@ -241,7 +270,8 @@ let selectedHighlighted = false; // whether the moves are currently displayed
 // update visual state of the toggle button
 function updateButtonState(btn){
     if(!btn) return;
-    btn.disabled = !selectedPiece; // disabled when no piece selected
+    // keep enabled when a piece is selected or when the toggle is active
+    btn.disabled = !selectedPiece && !selectedHighlighted;
     if(selectedHighlighted){
         btn.classList.add('active');
         btn.textContent = 'Masquer mouvements';
