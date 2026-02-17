@@ -10,6 +10,58 @@ let currentPlayer = 'white'; // whose turn it is
 let playerColor = null;      // human player's color (white or black)
 let gameActive = false;      // flag to disable interaction when over
 let moveHistory = [];        // stack for undo
+let gameMode = 'pvp';        // 'pvp' or 'ai'
+let aiDifficulty = 1;        // 1-4
+let aiThinking = false;      // to prevent double clicks while AI is thinking
+let stockfish = null;        // Stockfish engine instance
+
+// Initialize Stockfish engine
+function initStockfish(){
+    if(typeof Stockfish !== 'undefined'){
+        stockfish = Stockfish();
+        stockfish.onmessage = function(event){console.log('SF:', event);};
+        stockfish.postMessage('uci');
+    }
+}
+
+// Wait for Stockfish to load
+window.addEventListener('load', initStockfish);
+
+// Convert board to FEN notation for Stockfish
+function getBoardFEN(){
+    let fen = '';
+    for(let row = 8; row >= 1; row--){
+        let empty = 0;
+        for(let col = 0; col < 8; col++){
+            const square = document.getElementById(letters[col] + row);
+            if(!square || !square.textContent){
+                empty++;
+            } else {
+                if(empty > 0) fen += empty;
+                empty = 0;
+                const piece = square.textContent;
+                const isWhite = square.style.color === 'white';
+                // Convert piece symbols to FEN notation
+                let fenPiece = '';
+                switch(piece){
+                    case '♟': fenPiece = 'p'; break; // pion
+                    case '♜': fenPiece = 'r'; break; // tour
+                    case '♞': fenPiece = 'n'; break; // cavalier
+                    case '♝': fenPiece = 'b'; break; // fou
+                    case '♛': fenPiece = 'q'; break; // reine
+                    case '♚': fenPiece = 'k'; break; // roi
+                }
+                fen += isWhite ? fenPiece.toUpperCase() : fenPiece;
+            }
+        }
+        if(empty > 0) fen += empty;
+        if(row > 1) fen += '/';
+    }
+    // add side to move and other FEN info
+    const sideToMove = currentPlayer === 'white' ? 'w' : 'b';
+    fen += ' ' + sideToMove + ' KQkq - 0 1';
+    return fen;
+}
 
 function updateStatus(){
     const status = document.getElementById('status');
@@ -17,7 +69,9 @@ function updateStatus(){
     let prefix = 'Tour : ';
     const col = currentPlayer === 'white' ? 'Blanc' : 'Noir';
     let text = prefix + col;
-    if(playerColor){
+    if(gameMode === 'ai' && currentPlayer !== playerColor && aiThinking){
+        text += ' (Stockfish pense...)';
+    } else if(playerColor && playerColor !== 'both'){
         text += currentPlayer === playerColor ? ' (votre tour)' : ' (adversaire)';
     }
     status.textContent = text;
@@ -159,28 +213,129 @@ function movePiece(fromSquare, toSquare){
     checkGameState();
 
     AllSquare = [...document.getElementsByClassName('piece')];
+    
+    // if AI vs human and it's now AI's turn, schedule move
+    if(gameMode === 'ai' && gameActive && currentPlayer !== playerColor){
+        setTimeout(() => scheduleAIMove(), 800);
+    }
+}
+
+function makeAIMove(){
+    if(aiThinking || !gameActive || !stockfish) return;
+    aiThinking = true;
+    
+    // set skill level based on difficulty
+    const skillLevel = (aiDifficulty - 1) * 3; // 0, 3, 6, 9 for levels 1-4
+    stockfish.postMessage('setoption name Skill Level value ' + skillLevel);
+    
+    // set depth based on difficulty
+    const depth = 6 + (aiDifficulty - 1) * 4; // 6, 10, 14, 18
+    
+    // get current position in FEN
+    const fen = getBoardFEN();
+    
+    // send position to engine
+    stockfish.postMessage('position fen ' + fen);
+    
+    // request best move
+    return new Promise(resolve => {
+        const messageHandler = (event) => {
+            const message = event.data || event;
+            if(typeof message === 'string' && message.startsWith('bestmove')){
+                stockfish.removeEventListener ? 
+                    stockfish.removeEventListener('message', messageHandler) : 
+                    (stockfish.onmessage = null);
+                
+                const parts = message.split(' ');
+                const moveUCI = parts[1]; // e2e4 format
+                
+                // convert UCI move to chess squares
+                if(moveUCI.length >= 4){
+                    const fromSquare = moveUCI.substring(0, 2);
+                    const toSquare = moveUCI.substring(2, 4);
+                    
+                    const source = document.getElementById(fromSquare);
+                    const dest = document.getElementById(toSquare);
+                    
+                    if(source && dest && source.textContent){
+                        movePiece(source, dest);
+                    }
+                }
+                aiThinking = false;
+                resolve();
+            }
+        };
+        
+        // setup one-time listener for bestmove response
+        if(stockfish.addEventListener){
+            stockfish.addEventListener('message', messageHandler);
+        } else {
+            stockfish.onmessage = messageHandler;
+        }
+        
+        // send go command with depth
+        stockfish.postMessage('go depth ' + depth);
+    });
+}
+
+function scheduleAIMove(){
+    makeAIMove();
 }
 
 // handle start game / additional buttons
 window.addEventListener('DOMContentLoaded', () => {
+    const gameModeSel = document.getElementById('gameMode');
+    const colorLabel = document.getElementById('colorLabel');
+    const colorSelect = document.getElementById('colorSelect');
+    const diffLabel = document.getElementById('diffLabel');
+    const diffSelect = document.getElementById('difficultySelect');
     const startBtn = document.getElementById('startGame');
     const undoBtn = document.getElementById('undoMove');
     const resignBtn = document.getElementById('resign');
     const restartBtn = document.getElementById('restart');
-    const sel = document.getElementById('colorSelect');
+
+    // handle game mode change
+    if(gameModeSel){
+        gameModeSel.addEventListener('change', (e) => {
+            gameMode = e.target.value;
+            if(gameMode === 'pvp'){
+                colorLabel.style.display = 'none';
+                colorSelect.style.display = 'none';
+                diffLabel.style.display = 'none';
+                diffSelect.style.display = 'none';
+            } else {
+                colorLabel.style.display = 'inline';
+                colorSelect.style.display = 'inline';
+                diffLabel.style.display = 'inline';
+                diffSelect.style.display = 'inline';
+            }
+        });
+    }
 
     if(startBtn){
         startBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            if(sel) playerColor = sel.value;
+            if(gameMode === 'pvp'){
+                playerColor = 'both'; // both are human
+            } else {
+                playerColor = colorSelect.value;
+                aiDifficulty = parseInt(diffSelect.value);
+            }
             currentPlayer = 'white';
             gameActive = true;
             moveHistory = [];
             updateStatus();
-            sel.disabled = true;
+            gameModeSel.disabled = true;
+            colorSelect.disabled = true;
+            diffSelect.disabled = true;
             startBtn.disabled = true;
             if(undoBtn) undoBtn.disabled = false;
             if(resignBtn) resignBtn.disabled = false;
+            
+            // if AI is black and starts, trigger AI move
+            if(gameMode === 'ai' && playerColor === 'white'){
+                setTimeout(() => scheduleAIMove(), 500);
+            }
         });
     }
     if(undoBtn){
@@ -194,7 +349,7 @@ window.addEventListener('DOMContentLoaded', () => {
             e.preventDefault();
             gameActive = false;
             const status = document.getElementById('status');
-            status.textContent = 'Partie abandonnée – ' + (currentPlayer === playerColor ? 'Vous avez abandonné' : 'Adversaire a abandonné');
+            status.textContent = 'Partie abandonnée' + (gameMode === 'ai' ? ' – vous avez perdu' : '');
             disablePostGameButtons();
         });
     }
@@ -455,8 +610,8 @@ for (let row = 0; row < rows; row++) {
         // Ajouter un effet de clic
 
         p.addEventListener('click', function() {
-            // ignore clicks until a game has been started or after it ends
-            if(playerColor === null || !gameActive) return;
+            // ignore clicks until a game has been started or after it ends, or AI is thinking
+            if(playerColor === 'both' || !gameActive || aiThinking) return;
 
             const square = document.getElementById(squareId);
             const content = square.textContent;

@@ -5,15 +5,28 @@
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Chess Game</title>
     <link rel="stylesheet" href="./css/index.css">
+    <script src="https://cdn.jsdelivr.net/npm/stockfish@15.1.0/dist/stockfish.wasm.js"></script>
 </head>
 <body>
     <div class="container">
         <h1>♔ Jeu d'Échecs ♛</h1>
         <div class="controls" style="margin-bottom:15px; text-align:center; display:flex; flex-wrap:wrap; justify-content:center; gap:8px; align-items:center;">
-            <label for="colorSelect" style="font-weight:bold;">Couleur :</label>
-            <select id="colorSelect">
+            <label for="gameMode" style="font-weight:bold;">Mode :</label>
+            <select id="gameMode">
+                <option value="pvp" selected>Deux joueurs</option>
+                <option value="ai">Contre l'ordinateur</option>
+            </select>
+            <label for="colorSelect" style="font-weight:bold; display:none;" id="colorLabel">Couleur :</label>
+            <select id="colorSelect" style="display:none;">
                 <option value="white" selected>Blanc</option>
                 <option value="black">Noir</option>
+            </select>
+            <label for="difficultySelect" style="font-weight:bold; display:none;" id="diffLabel">Difficulté :</label>
+            <select id="difficultySelect" style="display:none;">
+                <option value="1">Niveau 1 - Facile</option>
+                <option value="2">Niveau 2 - Moyen</option>
+                <option value="3">Niveau 3 - Difficile</option>
+                <option value="4">Niveau 4 - Impossible</option>
             </select>
             <button id="startGame" class="ctrl-btn">Démarrer</button>
             <button id="undoMove" class="ctrl-btn" disabled>Annuler coup</button>
