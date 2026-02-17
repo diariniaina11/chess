@@ -5,6 +5,64 @@ const cols = 8;
 const letters = ['a', 'b', 'c', 'd', 'e', 'f', 'g', 'h'];
 const chiffres = ['1', '2', '3', '4', '5', '6', '7', '8'];
 
+// game state
+let currentPlayer = 'white'; // whose turn it is
+let playerColor = null;      // human player's color (white or black)
+
+function updateStatus(){
+    const status = document.getElementById('status');
+    if(!status) return;
+    const prefix = 'Tour : ';
+    const col = currentPlayer === 'white' ? 'Blanc' : 'Noir';
+    let text = prefix + col;
+    if(playerColor){
+        text += currentPlayer === playerColor ? ' (votre tour)' : ' (adversaire)';
+    }
+    status.textContent = text;
+}
+
+function movePiece(fromSquare, toSquare){
+    // move the piece text and color; clear source
+    toSquare.textContent = fromSquare.textContent;
+    toSquare.style.color = fromSquare.style.color;
+    fromSquare.textContent = '';
+    fromSquare.style.color = '';
+
+    // remove any highlighting left on board
+    AllSquare.forEach(el => el.style.boxShadow = 'none');
+
+    // reset selection/highlighting and button state
+    selectedPiece = null;
+    selectedMoves = [];
+    selectedHighlighted = false;
+    updateButtonState(document.getElementById('toggleMoves'));
+
+    // switch player
+    currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+    updateStatus();
+
+    // refresh AllSquare reference for later calculations
+    AllSquare = [...document.getElementsByClassName('piece')];
+}
+
+// handle start game button
+window.addEventListener('DOMContentLoaded', () => {
+    const startBtn = document.getElementById('startGame');
+    if(startBtn){
+        startBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            const sel = document.getElementById('colorSelect');
+            if(sel) playerColor = sel.value;
+            // white always begins
+            currentPlayer = 'white';
+            updateStatus();
+            // disable controls so color can't change mid-game
+            sel.disabled = true;
+            startBtn.disabled = true;
+        });
+    }
+});
+
 
 // Pièces d'échecs initiales
 const initialPieces = [
@@ -252,10 +310,22 @@ for (let row = 0; row < rows; row++) {
         // Ajouter un effet de clic
 
         p.addEventListener('click', function() {
-            // when a square is clicked we record selection but do not highlight until the button is pressed
+            // ignore clicks until a game has been started
+            if(playerColor === null) return;
+
             const square = document.getElementById(squareId);
-            // determine piece type
-            switch (square.textContent) {
+            const content = square.textContent;
+            const sqColor = square.style.color;
+
+            // if moving and clicked square is a legal destination
+            if(selectedPiece && selectedMoves.includes(squareId)){
+                movePiece(selectedPiece, square);
+                return;
+            }
+
+            // try to select a piece only if it belongs to the current player
+            let pieceType = null;
+            switch (content) {
                 case '♜': pieceType='tour'; break;
                 case '♞': pieceType='cavalier'; break;
                 case '♝': pieceType='fou'; break;
@@ -265,25 +335,24 @@ for (let row = 0; row < rows; row++) {
                 default: pieceType=null;
             }
 
-            // clear any existing highlights
+            // reset previous highlights
             AllSquare.forEach(el => el.style.boxShadow = 'none');
+            const wasActive = selectedHighlighted;
             selectedMoves = [];
-            // if the button was active we will reapply highlights below
 
-            if(pieceType){
+            if(pieceType && sqColor === currentPlayer){
                 const moveObj = new Move(pieceType, square.id, square.style.color);
                 selectedMoves = moveObj.movePossible(AllSquare);
                 selectedPiece = square;
+                selectedHighlighted = wasActive;
             } else {
                 selectedPiece = null;
+                selectedHighlighted = false;
             }
 
-            // update button enablement/text/class
+            // refresh UI states
             const btn = document.getElementById('toggleMoves');
             updateButtonState(btn);
-
-            // if the toggle was in 'active' mode (highlighted) and we have a new selection,
-            // immediately show the computed moves
             if(selectedPiece && selectedHighlighted){
                 selectedMoves.forEach(id => {
                     const el = document.getElementById(id);
@@ -314,3 +383,5 @@ container.appendChild(ul);
 wireToggleButton();
 
 var AllSquare = [...document.getElementsByClassName('piece')];
+// initialize status (before game start shows Tour : --)
+updateStatus();
