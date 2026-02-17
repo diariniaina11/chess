@@ -41,165 +41,184 @@ class Move{
         this.pieceType=pieceType;
         this.color=color;
     }
-    movePossible(){
-        
-        const position=this.position;
-        switch (this.pieceType) {
-            case 'tour':
-                var ligne=position[0];
-                var colonne=position[1];
-                var moveHorizontal=[];
-                for(let i=0;i<8;i++){
-                    moveHorizontal.push(position[0]+String(i+1));
-                    
+    movePossible(allSquares){
+        // build a simple board lookup for occupancy and colors
+        const board = {};
+        allSquares.forEach(el => {
+            board[el.id] = {piece: el.textContent, color: el.style.color || null};
+        });
+
+        const pos = this.position;
+        const colIdx = letters.indexOf(pos[0]);
+        const rowIdx = chiffres.indexOf(pos[1]);
+
+        const inBounds = (c,r) => c>=0 && c<8 && r>=0 && r<8;
+
+        const addStep = (moves, c, r) => {
+            const square = letters[c] + chiffres[r];
+            if(!board[square] || board[square].piece === ''){
+                moves.push(square);
+                return true; // continue sliding
+            } else {
+                // occupied
+                if(board[square].color !== this.color){
+                    moves.push(square); // can capture enemy
                 }
-                var moveVertical=[];
-                for(let i=0;i<8;i++){
-                    moveVertical.push(letters[i]+position[1]);
-                }
-                moveHorizontal.splice(moveHorizontal.indexOf(position), 1);
-                moveVertical.splice(moveVertical.indexOf(position), 1);
+                return false; // block further moves
+            }
+        };
 
-                return [...moveHorizontal,...moveVertical];
-                
-            case 'cavalier':
-                
-
-                var movesPossibles=[];
-                var ligne=letters.indexOf(position[0]);
-                var colonne=chiffres.indexOf(position[1]);
-
-                movesPossibles.push(letters[ligne+2]+chiffres[colonne+1]);
-                movesPossibles.push(letters[ligne+2]+chiffres[colonne-1]);
-                movesPossibles.push(letters[ligne-2]+chiffres[colonne+1]);
-                movesPossibles.push(letters[ligne-2]+chiffres[colonne-1]);
-                movesPossibles.push(letters[ligne+1]+chiffres[colonne+2]);
-                movesPossibles.push(letters[ligne-1]+chiffres[colonne+2]);
-                movesPossibles.push(letters[ligne+1]+chiffres[colonne-2]);
-                movesPossibles.push(letters[ligne-1]+chiffres[colonne-2]);
-                
-                return movesPossibles;
-            case 'fou':
-                var movesPossibles=[];
-                var ligne=letters.indexOf(position[0]);
-                var colonne=chiffres.indexOf(position[1]);
-
-                for(let i=ligne, j=colonne;i<7 || j<7;i++, j++){
-                    movesPossibles.push(letters[i+1]+chiffres[j+1]);
-                              
-                }
-                
-                for(let i=ligne+1, j=colonne-1;i<=7 || 0<=j;i++, j--){
-                    movesPossibles.push(letters[i]+chiffres[j]);     
-                    
-
-                }
-
-                for(let i=ligne, j=colonne;0<i || 0<j;i--, j--){
-                    movesPossibles.push(letters[i-1]+chiffres[j-1]); 
-                    
-
-                }
-
-                for(let i=ligne-1, j=colonne+1;0<=i || j<=7;i--, j++){
-                    movesPossibles.push(letters[i]+chiffres[j]); 
-                }
-
-                const filteredList = movesPossibles.filter(item => !item.includes("undefined"));
-
-                return filteredList;
-            case 'reine':
-                
-                
-                var movesPossibles=[];
-                var ligne=letters.indexOf(position[0]);
-                var colonne=chiffres.indexOf(position[1]);
-                
-                for(let i=ligne, j=colonne;i<7 || j<7;i++, j++){
-                    movesPossibles.push(letters[i+1]+chiffres[j+1]);
-                              
-                }
-                
-                for(let i=ligne+1, j=colonne-1;i<=7 || 0<=j;i++, j--){
-                    movesPossibles.push(letters[i]+chiffres[j]);     
-                    
-
-                }
-
-                for(let i=ligne, j=colonne;0<i || 0<j;i--, j--){
-                    movesPossibles.push(letters[i-1]+chiffres[j-1]); 
-                    
-
-                }
-
-                for(let i=ligne-1, j=colonne+1;0<=i || j<=7;i--, j++){
-                    movesPossibles.push(letters[i]+chiffres[j]); 
-                }
-
-                movesPossibles = movesPossibles.filter(item => !item.includes("undefined"));
-
-
-                var ligne=position[0];
-                var colonne=position[1];
-                var moveHorizontal=[];
-                for(let i=0;i<8;i++){
-                    moveHorizontal.push(position[0]+String(i+1));
-                }
-                var moveVertical=[];
-                for(let i=0;i<8;i++){
-                    moveVertical.push(letters[i]+position[1]);
-                }
-                
-                const filteredLists = movesPossibles.filter(item => !item.includes("undefined"));
-                moveHorizontal.splice(moveHorizontal.indexOf(position), 1);
-                moveVertical.splice(moveVertical.indexOf(position), 1);
-
-
-                return [...moveHorizontal,...moveVertical,...filteredLists];
-            case 'roi':
-                var movesPossibles=[];
-                var ii=letters.indexOf(position[0])-1;
-                var jj=chiffres.indexOf(position[1])-1;
-                
-                
-                for(let i=2;0<=i;i--){
-                    for(let j=0;j<3;j++){
-                        movesPossibles.push(letters[ii+j]+chiffres[jj+i]);
+        switch(this.pieceType){
+            case 'tour': {
+                const moves = [];
+                const dirs = [[1,0],[-1,0],[0,1],[0,-1]];
+                dirs.forEach(([dc,dr]) => {
+                    let c = colIdx + dc;
+                    let r = rowIdx + dr;
+                    while(inBounds(c,r) && addStep(moves,c,r)){
+                        c += dc;
+                        r += dr;
+                    }
+                });
+                return moves;
+            }
+            case 'cavalier': {
+                const moves = [];
+                const jumps = [[2,1],[2,-1],[-2,1],[-2,-1],[1,2],[-1,2],[1,-2],[-1,-2]];
+                jumps.forEach(([dc,dr]) => {
+                    const c = colIdx + dc;
+                    const r = rowIdx + dr;
+                    if(inBounds(c,r)){
+                        const square = letters[c]+chiffres[r];
+                        if(!board[square] || board[square].piece === '' || board[square].color !== this.color){
+                            moves.push(square);
+                        }
+                    }
+                });
+                return moves;
+            }
+            case 'fou': {
+                const moves = [];
+                const dirs = [[1,1],[1,-1],[-1,1],[-1,-1]];
+                dirs.forEach(([dc,dr]) => {
+                    let c = colIdx + dc;
+                    let r = rowIdx + dr;
+                    while(inBounds(c,r) && addStep(moves,c,r)){
+                        c += dc;
+                        r += dr;
+                    }
+                });
+                return moves;
+            }
+            case 'reine': {
+                const moves = [];
+                const dirs = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[1,-1],[-1,1],[-1,-1]];
+                dirs.forEach(([dc,dr]) => {
+                    let c = colIdx + dc;
+                    let r = rowIdx + dr;
+                    while(inBounds(c,r) && addStep(moves,c,r)){
+                        c += dc;
+                        r += dr;
+                    }
+                });
+                return moves;
+            }
+            case 'roi': {
+                const moves = [];
+                for(let dc=-1; dc<=1; dc++){
+                    for(let dr=-1; dr<=1; dr++){
+                        if(dc===0 && dr===0) continue;
+                        const c = colIdx + dc;
+                        const r = rowIdx + dr;
+                        if(inBounds(c,r)){
+                            const sq = letters[c]+chiffres[r];
+                            if(!board[sq] || board[sq].piece === '' || board[sq].color !== this.color){
+                                moves.push(sq);
+                            }
+                        }
                     }
                 }
-                
-                movesPossibles.splice(movesPossibles.indexOf(position), 1);
-                const filteredListsss = movesPossibles.filter(item => !item.includes("undefined"));
-
-                return filteredListsss;
-            case 'pion':
-                
-                if(this.color=='white'){
-                    var movesPossibles=[];
-                    var colonne=letters.indexOf(position[0]);
-                    var ligne=chiffres.indexOf(position[1]);
-                    movesPossibles.push(letters[colonne] +chiffres[ligne+1]);
-                    if(parseInt(position[1])==2){
-                        movesPossibles.push(letters[colonne] +chiffres[ligne+2]);
-                    }
-                }else{
-                    var movesPossibles=[];
-                    var colonne=letters.indexOf(position[0]);
-                    var ligne=chiffres.indexOf(position[1]);
-                    movesPossibles.push(letters[colonne] +chiffres[ligne-1]);
-                    if(parseInt(position[1])==7){
-                        movesPossibles.push(letters[colonne] +chiffres[ligne-2]);
+                return moves;
+            }
+            case 'pion': {
+                const moves = [];
+                const forward = this.color === 'white' ? 1 : -1;
+                const startRow = this.color === 'white' ? 1 : 6;
+                // forward move
+                let r = rowIdx + forward;
+                let c = colIdx;
+                if(inBounds(c,r) && (!board[letters[c]+chiffres[r]] || board[letters[c]+chiffres[r]].piece === '')){
+                    moves.push(letters[c]+chiffres[r]);
+                    if(rowIdx === startRow){
+                        r = rowIdx + 2*forward;
+                        if(inBounds(c,r) && (!board[letters[c]+chiffres[r]] || board[letters[c]+chiffres[r]].piece === '')){
+                            moves.push(letters[c]+chiffres[r]);
+                        }
                     }
                 }
-                
-                return movesPossibles;
+                // capture diagonals
+                [[1,forward],[-1,forward]].forEach(([dc,dr])=>{
+                    const cc = colIdx + dc;
+                    const rr = rowIdx + dr;
+                    if(inBounds(cc,rr)){
+                        const sq = letters[cc]+chiffres[rr];
+                        if(board[sq] && board[sq].piece !== '' && board[sq].color && board[sq].color !== this.color){
+                            moves.push(sq);
+                        }
+                    }
+                });
+                return moves;
+            }
             default:
-                return "tsis";
+                return [];
         }
     }
-    
 }
-var movesPossiblesContainer=[];
+
+// keep track of a clicked piece and its potential moves
+let selectedPiece = null;
+let selectedMoves = [];
+let selectedHighlighted = false; // whether the moves are currently displayed
+
+// update visual state of the toggle button
+function updateButtonState(btn){
+    if(!btn) return;
+    btn.disabled = !selectedPiece; // disabled when no piece selected
+    if(selectedHighlighted){
+        btn.classList.add('active');
+        btn.textContent = 'Masquer mouvements';
+    } else {
+        btn.classList.remove('active');
+        btn.textContent = 'Afficher mouvements';
+    }
+}
+
+// button element will be wired once the board is built
+function wireToggleButton(){
+    const btn = document.getElementById('toggleMoves');
+    if(!btn) return;
+    btn.disabled = true;
+    btn.addEventListener('click', () => {
+        if(!selectedPiece) return;
+        if(!selectedHighlighted){
+            // highlight previously computed moves
+            selectedMoves.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.style.boxShadow = 'inset 0 0 20px rgba(0, 255, 0, 1)';
+            });
+            selectedHighlighted = true;
+        } else {
+            // remove highlight
+            selectedMoves.forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.style.boxShadow = 'none';
+            });
+            selectedHighlighted = false;
+        }
+        updateButtonState(btn);
+    });
+}
+
 
 
 
@@ -233,58 +252,44 @@ for (let row = 0; row < rows; row++) {
         // Ajouter un effet de clic
 
         p.addEventListener('click', function() {
-            //console.log('Cliqué sur la case:', squareId);
-            square=document.getElementById(squareId);
-            //console.log(square.textContent);
-            //console.log(square.style.color);
-
-            //move possible
+            // when a square is clicked we record selection but do not highlight until the button is pressed
+            const square = document.getElementById(squareId);
+            // determine piece type
             switch (square.textContent) {
-                case '♜':
-                    pieceType='tour';
-                    break;
-                case '♞':
-                    pieceType='cavalier';
-                    break;
-                case '♝':
-                    pieceType='fou';
-                    break;
-                case '♛':
-                    pieceType='reine';
-                    break;
-                case '♚':
-                    pieceType='roi';
-                    break;
-                case '♟':
-                    pieceType='pion';
-                    break;
-                default:
-                    pieceType=null;
+                case '♜': pieceType='tour'; break;
+                case '♞': pieceType='cavalier'; break;
+                case '♝': pieceType='fou'; break;
+                case '♛': pieceType='reine'; break;
+                case '♚': pieceType='roi'; break;
+                case '♟': pieceType='pion'; break;
+                default: pieceType=null;
             }
-            AllSquare.forEach(element => {
-                element.style.boxShadow = 'none';
+
+            // clear any existing highlights
+            AllSquare.forEach(el => el.style.boxShadow = 'none');
+            selectedMoves = [];
+            // if the button was active we will reapply highlights below
+
+            if(pieceType){
+                const moveObj = new Move(pieceType, square.id, square.style.color);
+                selectedMoves = moveObj.movePossible(AllSquare);
+                selectedPiece = square;
+            } else {
+                selectedPiece = null;
             }
-            );
-            movesPossiblesContainerLenght=movesPossiblesContainer.length;
-            
-            movesPossiblesContainer.push(new Move(pieceType,square.id, square.style.color)) ;//pieceType, position, color
-            movesPossiblesContainer.push(new Move(pieceType,square.id, square.style.color)) ;//pieceType, position, color
-            //console.log(movesPossiblesContainer);
-            
-            
-            
-            move_used= movesPossiblesContainer[movesPossiblesContainerLenght].movePossible()
-            
 
-            move_used.forEach(id => {
-                const element = document.getElementById(id);
-                if (element) {
-                    
-                    element.style.boxShadow = 'inset 0 0 20px rgba(0, 255, 0, 1)';
-                    
-                }
-              });
+            // update button enablement/text/class
+            const btn = document.getElementById('toggleMoves');
+            updateButtonState(btn);
 
+            // if the toggle was in 'active' mode (highlighted) and we have a new selection,
+            // immediately show the computed moves
+            if(selectedPiece && selectedHighlighted){
+                selectedMoves.forEach(id => {
+                    const el = document.getElementById(id);
+                    if(el) el.style.boxShadow = 'inset 0 0 20px rgba(0, 255, 0, 1)';
+                });
+            }
         });
         if(row<2){
             p.style.color='black';
@@ -305,6 +310,7 @@ for (let row = 0; row < rows; row++) {
 
 // Ajouter la liste au conteneur
 container.appendChild(ul);
-//alert(document.getElementById('a8').textContent);
+// after DOM squares exist we can wire the toggle button and update the AllSquare list
+wireToggleButton();
 
-var AllSquare = [...document.getElementsByClassName('piece')]
+var AllSquare = [...document.getElementsByClassName('piece')];

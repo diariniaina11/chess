@@ -11,6 +11,8 @@
         <h1>♔ Jeu d'Échecs ♛</h1>
         <form id="chess-table">
         </form>
+        <!-- bouton pour afficher/masquer les mouvements possibles -->
+        <button id="toggleMoves" style="margin-top:10px; padding:8px 16px; font-size:1rem;">Afficher mouvements</button>
     </div>
 
     <script src="./js/index.js"></script>

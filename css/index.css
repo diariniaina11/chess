@@ -127,3 +127,24 @@ h1 {
         padding: 15px;
     }
 }
+
+/* bouton affichage mouvements */
+#toggleMoves {
+    background: #fff;
+    border: 1px solid #333;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: background 0.2s;
+}
+#toggleMoves:hover {
+    background: #eee;
+}
+#toggleMoves.active {
+    background: #4caf50;
+    color: white;
+}
+#toggleMoves:disabled {
+    background: #ccc;
+    color: #666;
+    cursor: not-allowed;
+}
