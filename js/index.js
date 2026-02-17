@@ -8,11 +8,13 @@ const chiffres = ['1', '2', '3', '4', '5', '6', '7', '8'];
 // game state
 let currentPlayer = 'white'; // whose turn it is
 let playerColor = null;      // human player's color (white or black)
+let gameActive = false;      // flag to disable interaction when over
+let moveHistory = [];        // stack for undo
 
 function updateStatus(){
     const status = document.getElementById('status');
     if(!status) return;
-    const prefix = 'Tour : ';
+    let prefix = 'Tour : ';
     const col = currentPlayer === 'white' ? 'Blanc' : 'Noir';
     let text = prefix + col;
     if(playerColor){
@@ -21,23 +23,111 @@ function updateStatus(){
     status.textContent = text;
 }
 
+// determine if king of given color is under attack
+function isKingInCheck(color){
+    // find king square
+    let kingSq = null;
+    AllSquare.forEach(el => {
+        if(el.textContent === '♚' && el.style.color === color){
+            kingSq = el.id;
+        }
+    });
+    if(!kingSq) return false; // no king (already captured)
+    // generate all moves of opposite color
+    const enemy = color === 'white' ? 'black' : 'white';
+    const moves = generateAllMoves(enemy);
+    return moves.includes(kingSq);
+}
+
+function generateAllMoves(color){
+    let accum = [];
+    AllSquare.forEach(el => {
+        if(el.textContent && el.style.color === color){
+            let pt = null;
+            switch(el.textContent){
+                case '♜': pt='tour'; break;
+                case '♞': pt='cavalier'; break;
+                case '♝': pt='fou'; break;
+                case '♛': pt='reine'; break;
+                case '♚': pt='roi'; break;
+                case '♟': pt='pion'; break;
+            }
+            if(pt){
+                const moveObj = new Move(pt, el.id, el.style.color);
+                accum = accum.concat(moveObj.movePossible(AllSquare));
+            }
+        }
+    });
+    return accum;
+}
+
+function checkGameState(){
+    if(!gameActive) return;
+    const status = document.getElementById('status');
+    // if the current player's king no longer exists, opponent just captured it => checkmate
+    let kingExists = false;
+    AllSquare.forEach(el => {
+        if(el.textContent === '♚' && el.style.color === currentPlayer){
+            kingExists = true;
+        }
+    });
+    if(!kingExists){
+        status.textContent = 'Échec et mat – ' + (currentPlayer === 'white' ? 'Blanc' : 'Noir') + ' perd';
+        gameActive = false;
+        disablePostGameButtons();
+        return;
+    }
+
+    const inCheck = isKingInCheck(currentPlayer);
+    const allMoves = generateAllMoves(currentPlayer);
+    if(inCheck){
+        if(allMoves.length === 0){
+            status.textContent = 'Échec et mat – ' + (currentPlayer === 'white' ? 'Blanc' : 'Noir') + ' perd';
+            gameActive = false;
+            disablePostGameButtons();
+        } else {
+            status.textContent = status.textContent + ' (échec)';
+        }
+    } else {
+        if(allMoves.length === 0){
+            status.textContent = 'Pat – partie nulle';
+            gameActive = false;
+            disablePostGameButtons();
+        }
+    }
+}
+
+function disablePostGameButtons(){
+    document.getElementById('undoMove').disabled = true;
+    document.getElementById('resign').disabled = true;
+}
+
 function movePiece(fromSquare, toSquare){
-    // record previous display state
+    // save history entry before mutating
+    moveHistory.push({
+        fromId: fromSquare.id,
+        toId: toSquare.id,
+        piece: fromSquare.textContent,
+        color: fromSquare.style.color,
+        captured: toSquare.textContent || '',
+        capturedColor: toSquare.style.color || ''
+    });
+    // history changed, allow undo
+    const undoBtn = document.getElementById('undoMove');
+    if(undoBtn) undoBtn.disabled = false;
+
     const wasActive = selectedHighlighted;
 
-    // move the piece text and color; clear source
+    // move piece
     toSquare.textContent = fromSquare.textContent;
     toSquare.style.color = fromSquare.style.color;
     fromSquare.textContent = '';
     fromSquare.style.color = '';
 
-    // clear all highlights (we will reapply if needed)
     AllSquare.forEach(el => el.style.boxShadow = 'none');
 
-    // keep focus on moved piece
     selectedPiece = toSquare;
     if(wasActive && selectedPiece.textContent){
-        // recompute legal moves for the piece now on its new square
         let pt = null;
         switch (toSquare.textContent) {
             case '♜': pt='tour'; break;
@@ -53,7 +143,6 @@ function movePiece(fromSquare, toSquare){
         } else {
             selectedMoves = [];
         }
-        // highlight them immediately
         selectedMoves.forEach(id => {
             const el = document.getElementById(id);
             if(el) el.style.boxShadow = 'inset 0 0 20px rgba(0, 255, 0, 1)';
@@ -62,35 +151,61 @@ function movePiece(fromSquare, toSquare){
         selectedMoves = [];
     }
     selectedHighlighted = wasActive;
-
-    // update button display, leave it enabled if wasActive
     updateButtonState(document.getElementById('toggleMoves'));
 
-    // switch player
+    // after move update status and check conditions
     currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
     updateStatus();
+    checkGameState();
 
-    // refresh AllSquare reference for later calculations
     AllSquare = [...document.getElementsByClassName('piece')];
 }
 
-// handle start game button
+// handle start game / additional buttons
 window.addEventListener('DOMContentLoaded', () => {
     const startBtn = document.getElementById('startGame');
+    const undoBtn = document.getElementById('undoMove');
+    const resignBtn = document.getElementById('resign');
+    const restartBtn = document.getElementById('restart');
+    const sel = document.getElementById('colorSelect');
+
     if(startBtn){
         startBtn.addEventListener('click', (e) => {
             e.preventDefault();
-            const sel = document.getElementById('colorSelect');
             if(sel) playerColor = sel.value;
-            // white always begins
             currentPlayer = 'white';
+            gameActive = true;
+            moveHistory = [];
             updateStatus();
-            // disable controls so color can't change mid-game
             sel.disabled = true;
             startBtn.disabled = true;
+            if(undoBtn) undoBtn.disabled = false;
+            if(resignBtn) resignBtn.disabled = false;
+        });
+    }
+    if(undoBtn){
+        undoBtn.addEventListener('click', (e)=>{
+            e.preventDefault();
+            undoMove();
+        });
+    }
+    if(resignBtn){
+        resignBtn.addEventListener('click',(e)=>{
+            e.preventDefault();
+            gameActive = false;
+            const status = document.getElementById('status');
+            status.textContent = 'Partie abandonnée – ' + (currentPlayer === playerColor ? 'Vous avez abandonné' : 'Adversaire a abandonné');
+            disablePostGameButtons();
+        });
+    }
+    if(restartBtn){
+        restartBtn.addEventListener('click',(e)=>{
+            e.preventDefault();
+            restartGame();
         });
     }
 });
+
 
 
 // Pièces d'échecs initiales
@@ -340,8 +455,8 @@ for (let row = 0; row < rows; row++) {
         // Ajouter un effet de clic
 
         p.addEventListener('click', function() {
-            // ignore clicks until a game has been started
-            if(playerColor === null) return;
+            // ignore clicks until a game has been started or after it ends
+            if(playerColor === null || !gameActive) return;
 
             const square = document.getElementById(squareId);
             const content = square.textContent;
@@ -370,7 +485,9 @@ for (let row = 0; row < rows; row++) {
             const wasActive = selectedHighlighted;
             selectedMoves = [];
 
+            // mark chosen piece visually
             if(pieceType && sqColor === currentPlayer){
+                square.style.boxShadow = 'inset 0 0 10px rgba(255,0,0,0.8)';
                 const moveObj = new Move(pieceType, square.id, square.style.color);
                 selectedMoves = moveObj.movePossible(AllSquare);
                 selectedPiece = square;
@@ -415,3 +532,38 @@ wireToggleButton();
 var AllSquare = [...document.getElementsByClassName('piece')];
 // initialize status (before game start shows Tour : --)
 updateStatus();
+
+function undoMove(){
+    if(moveHistory.length === 0) return;
+    const last = moveHistory.pop();
+    const from = document.getElementById(last.fromId);
+    const to = document.getElementById(last.toId);
+    if(from && to){
+        from.textContent = last.piece;
+        from.style.color = last.color;
+        to.textContent = last.captured;
+        to.style.color = last.capturedColor;
+    }
+    // switch turn back
+    currentPlayer = currentPlayer === 'white' ? 'black' : 'white';
+    // reactivate game if it was over
+    gameActive = true;
+    updateStatus();
+    // clear selection/highlight
+    AllSquare.forEach(el => el.style.boxShadow = 'none');
+    selectedPiece = null;
+    selectedMoves = [];
+    selectedHighlighted = false;
+    updateButtonState(document.getElementById('toggleMoves'));
+    // re-enable resign button
+    document.getElementById('resign').disabled = false;
+    if(moveHistory.length === 0){
+        document.getElementById('undoMove').disabled = true;
+    }
+    checkGameState();
+}
+
+function restartGame(){
+    // simple full reset: reload page as easiest path
+    window.location.reload();
+}

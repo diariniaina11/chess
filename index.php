@@ -9,14 +9,17 @@
 <body>
     <div class="container">
         <h1>♔ Jeu d'Échecs ♛</h1>
-        <div class="controls" style="margin-bottom:15px; text-align:center;">
-            <label for="colorSelect">Choisir votre couleur :</label>
+        <div class="controls" style="margin-bottom:15px; text-align:center; display:flex; flex-wrap:wrap; justify-content:center; gap:8px; align-items:center;">
+            <label for="colorSelect" style="font-weight:bold;">Couleur :</label>
             <select id="colorSelect">
                 <option value="white" selected>Blanc</option>
                 <option value="black">Noir</option>
             </select>
-            <button id="startGame" style="margin-left:10px; padding:6px 12px;">Démarrer</button>
-            <p id="status" style="margin-top:8px; font-weight:bold;">Tour : --</p>
+            <button id="startGame" class="ctrl-btn">Démarrer</button>
+            <button id="undoMove" class="ctrl-btn" disabled>Annuler coup</button>
+            <button id="resign" class="ctrl-btn" disabled>Abandonner</button>
+            <button id="restart" class="ctrl-btn">Rejouer</button>
+            <p id="status" style="margin-top:8px; font-weight:bold; min-width:200px; text-align:center;">Tour : --</p>
         </div>
         <form id="chess-table">
         </form>
