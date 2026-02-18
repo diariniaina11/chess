@@ -13,19 +13,23 @@ let moveHistory = [];        // stack for undo
 let gameMode = 'pvp';        // 'pvp' or 'ai'
 let aiDifficulty = 1;        // 1-4
 let aiThinking = false;      // to prevent double clicks while AI is thinking
-let stockfish = null;        // Stockfish engine instance
+let stockfish = null;        // Not used, using Lichess API instead
 
-// Initialize Stockfish engine
-function initStockfish(){
-    if(typeof Stockfish !== 'undefined'){
-        stockfish = Stockfish();
-        stockfish.onmessage = function(event){console.log('SF:', event);};
-        stockfish.postMessage('uci');
+// Lichess API for best move analysis
+async function getLichessBestMove(fen, depth = 20){
+    try {
+        const response = await fetch(`https://lichess.org/api/cloud-eval?fen=${encodeURIComponent(fen)}&multiPv=1`);
+        const data = await response.json();
+        if(data.pvs && data.pvs[0] && data.pvs[0].moves){
+            // return first move in UCI format (e2e4)
+            return data.pvs[0].moves.split(' ')[0];
+        }
+        return null;
+    } catch(e){
+        console.warn('Lichess API error:', e);
+        return null;
     }
 }
-
-// Wait for Stockfish to load
-window.addEventListener('load', initStockfish);
 
 // Convert board to FEN notation for Stockfish
 function getBoardFEN(){
@@ -221,61 +225,103 @@ function movePiece(fromSquare, toSquare){
 }
 
 function makeAIMove(){
-    if(aiThinking || !gameActive || !stockfish) return;
+    if(aiThinking || !gameActive) return;
     aiThinking = true;
     
-    // set skill level based on difficulty
-    const skillLevel = (aiDifficulty - 1) * 3; // 0, 3, 6, 9 for levels 1-4
-    stockfish.postMessage('setoption name Skill Level value ' + skillLevel);
-    
-    // set depth based on difficulty
-    const depth = 6 + (aiDifficulty - 1) * 4; // 6, 10, 14, 18
-    
-    // get current position in FEN
+    // get FEN position
     const fen = getBoardFEN();
     
-    // send position to engine
-    stockfish.postMessage('position fen ' + fen);
+    // based on difficulty, add delay and randomness
+    let delay = 500;
+    let useRandom = false;
     
-    // request best move
-    return new Promise(resolve => {
-        const messageHandler = (event) => {
-            const message = event.data || event;
-            if(typeof message === 'string' && message.startsWith('bestmove')){
-                stockfish.removeEventListener ? 
-                    stockfish.removeEventListener('message', messageHandler) : 
-                    (stockfish.onmessage = null);
-                
-                const parts = message.split(' ');
-                const moveUCI = parts[1]; // e2e4 format
-                
-                // convert UCI move to chess squares
-                if(moveUCI.length >= 4){
-                    const fromSquare = moveUCI.substring(0, 2);
-                    const toSquare = moveUCI.substring(2, 4);
-                    
-                    const source = document.getElementById(fromSquare);
-                    const dest = document.getElementById(toSquare);
-                    
-                    if(source && dest && source.textContent){
-                        movePiece(source, dest);
-                    }
-                }
-                aiThinking = false;
-                resolve();
+    if(aiDifficulty === 1){
+        delay = 300;
+        useRandom = true; // level 1: mostly random
+    } else if(aiDifficulty === 2){
+        delay = 600;
+        useRandom = Math.random() < 0.4; // 40% random
+    } else if(aiDifficulty === 3){
+        delay = 1000;
+        useRandom = Math.random() < 0.1; // 10% random
+    } else if(aiDifficulty === 4){
+        delay = 1200;
+        useRandom = false; // always best
+    }
+    
+    setTimeout(async () => {
+        try {
+            let moveUCI = null;
+            
+            if(useRandom){
+                // pick random legal move for easy levels
+                moveUCI = getRandomMove();
+            } else {
+                // get best move from Lichess API
+                moveUCI = await getLichessBestMove(fen);
             }
-        };
-        
-        // setup one-time listener for bestmove response
-        if(stockfish.addEventListener){
-            stockfish.addEventListener('message', messageHandler);
-        } else {
-            stockfish.onmessage = messageHandler;
+            
+            if(moveUCI && moveUCI.length >= 4){
+                const fromSquare = moveUCI.substring(0, 2);
+                const toSquare = moveUCI.substring(2, 4);
+                
+                const source = document.getElementById(fromSquare);
+                const dest = document.getElementById(toSquare);
+                
+                if(source && dest && source.textContent){
+                    movePiece(source, dest);
+                } else {
+                    // fallback
+                    makeRandomAIMove();
+                }
+            } else {
+                makeRandomAIMove();
+            }
+        } catch(e){
+            console.error('AI move error:', e);
+            makeRandomAIMove();
+        } finally {
+            aiThinking = false;
         }
-        
-        // send go command with depth
-        stockfish.postMessage('go depth ' + depth);
-    });
+    }, delay);
+}
+
+function getRandomMove(){
+    const allMoves = generateAllMoves(currentPlayer);
+    if(allMoves.length === 0) return null;
+    return allMoves[Math.floor(Math.random() * allMoves.length)];
+}
+
+function makeRandomAIMove(){
+    // fallback: pick random legal move
+    const allMoves = generateAllMoves(currentPlayer);
+    if(allMoves.length === 0){
+        return;
+    }
+    
+    const randomDest = allMoves[Math.floor(Math.random() * allMoves.length)];
+    // find source for this move
+    for(let p of AllSquare){
+        if(!p.textContent || p.style.color !== currentPlayer) continue;
+        let pt = null;
+        switch(p.textContent){
+            case '♜': pt='tour'; break;
+            case '♞': pt='cavalier'; break;
+            case '♝': pt='fou'; break;
+            case '♛': pt='reine'; break;
+            case '♚': pt='roi'; break;
+            case '♟': pt='pion'; break;
+        }
+        if(!pt) continue;
+        const moveObj = new Move(pt, p.id, p.style.color);
+        if(moveObj.movePossible(AllSquare).includes(randomDest)){
+            const dest = document.getElementById(randomDest);
+            if(dest){
+                movePiece(p, dest);
+            }
+            return;
+        }
+    }
 }
 
 function scheduleAIMove(){
